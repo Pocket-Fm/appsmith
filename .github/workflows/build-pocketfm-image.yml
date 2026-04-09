@@ -139,6 +139,10 @@ jobs:
         with:
           fetch-tags: true
 
+      - name: Lowercase repository owner
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - name: Download client build
         uses: actions/download-artifact@v4
         with:
@@ -198,7 +202,7 @@ jobs:
           build-args: |
             BASE=appsmith/base-ce:release
           tags: |
-            ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ inputs.tag || 'latest' }}
-            ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:${{ inputs.tag || 'latest' }}
+            ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
