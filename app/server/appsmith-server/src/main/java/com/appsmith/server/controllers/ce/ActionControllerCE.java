@@ -83,7 +83,10 @@ public class ActionControllerCE {
         return actionExecutionSolution
                 .executeAction(
                         partFlux, environmentId, serverWebExchange.getRequest().getHeaders(), Boolean.FALSE)
-                .map(updatedResource -> new ResponseDTO<>(HttpStatus.OK, updatedResource));
+                .map(updatedResource -> new ResponseDTO<>(HttpStatus.OK, updatedResource))
+                // PocketFM CE fork: propagate ServerWebExchange into Reactor context
+                // so OAuth2 token extraction can access the authorized client repository
+                .contextWrite(ctx -> ctx.put(ServerWebExchange.class, serverWebExchange));
     }
 
     @JsonView(Views.Public.class)
