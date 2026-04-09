@@ -1,6 +1,9 @@
 name: Build PocketFM Custom Image
 
 on:
+  push:
+    branches:
+      - pocketfm-main
   workflow_dispatch:
     inputs:
       tag:
@@ -195,7 +198,7 @@ jobs:
           build-args: |
             BASE=appsmith/base-ce:release
           tags: |
-            ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ inputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ inputs.tag || 'latest' }}
             ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
