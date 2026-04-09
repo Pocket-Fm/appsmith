@@ -44,6 +44,9 @@ public class ClientUserRepository implements ServerOAuth2AuthorizedClientReposit
     public static final String DEFAULT_AUTHORIZED_CLIENTS_ATTR_NAME =
             WebSessionServerOAuth2AuthorizedClientRepository.class.getName() + ".AUTHORIZED_CLIENTS";
 
+    // PocketFM CE fork: session key for the OAuth2 access token (plain string, Redis-safe)
+    public static final String OAUTH2_ACCESS_TOKEN_SESSION_KEY = "pocketfm.oauth2.accessToken";
+
     private final String sessionAttributeName = DEFAULT_AUTHORIZED_CLIENTS_ATTR_NAME;
 
     UserService userService;
@@ -97,6 +100,18 @@ public class ClientUserRepository implements ServerOAuth2AuthorizedClientReposit
                     authorizedClients.put(
                             authorizedClient.getClientRegistration().getRegistrationId(), authorizedClient);
                     session.getAttributes().put(this.sessionAttributeName, authorizedClients);
+
+                    // PocketFM CE fork: persist the OAuth2 access token as a plain string
+                    // in the session so it can be used for <<APPSMITH_USER_OAUTH2_ACCESS_TOKEN>>
+                    // placeholder substitution during action execution.
+                    if (authorizedClient.getAccessToken() != null
+                            && authorizedClient.getAccessToken().getTokenValue() != null) {
+                        session.getAttributes()
+                                .put(OAUTH2_ACCESS_TOKEN_SESSION_KEY,
+                                        authorizedClient.getAccessToken().getTokenValue());
+                        log.debug("Stored OAuth2 access token in session for provider: {}",
+                                authorizedClient.getClientRegistration().getRegistrationId());
+                    }
                 })
                 /*
                  * TODO
