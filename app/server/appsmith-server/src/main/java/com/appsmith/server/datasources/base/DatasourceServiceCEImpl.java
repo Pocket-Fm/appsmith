@@ -23,6 +23,7 @@ import com.appsmith.server.dtos.DBOpsType;
 import com.appsmith.server.exceptions.AppsmithError;
 import com.appsmith.server.exceptions.AppsmithException;
 import com.appsmith.server.helpers.PluginExecutorHelper;
+import com.appsmith.server.helpers.ce.UserUtilsCE;
 import com.appsmith.server.plugins.base.PluginService;
 import com.appsmith.server.ratelimiting.RateLimitService;
 import com.appsmith.server.repositories.DatasourceRepository;
@@ -91,6 +92,7 @@ public class DatasourceServiceCEImpl implements DatasourceServiceCE {
     private final RateLimitService rateLimitService;
     private final FeatureFlagService featureFlagService;
     private final ObservationRegistry observationRegistry;
+    private final UserUtilsCE userUtils;
     // Defines blocking duration for test as well as connection created for query execution
     // This will block the creation of datasource connection for 5 minutes, in case of more than 3 failed connection
     // attempts
@@ -116,7 +118,8 @@ public class DatasourceServiceCEImpl implements DatasourceServiceCE {
             EnvironmentPermission environmentPermission,
             RateLimitService rateLimitService,
             FeatureFlagService featureFlagService,
-            ObservationRegistry observationRegistry) {
+            ObservationRegistry observationRegistry,
+            UserUtilsCE userUtils) {
 
         this.workspaceService = workspaceService;
         this.sessionUserService = sessionUserService;
@@ -135,6 +138,7 @@ public class DatasourceServiceCEImpl implements DatasourceServiceCE {
         this.rateLimitService = rateLimitService;
         this.featureFlagService = featureFlagService;
         this.observationRegistry = observationRegistry;
+        this.userUtils = userUtils;
     }
 
     /**
@@ -142,12 +146,12 @@ public class DatasourceServiceCEImpl implements DatasourceServiceCE {
      * Returns Mono.empty() if allowed, Mono.error(UNAUTHORIZED_ACCESS) otherwise.
      */
     private Mono<Void> requireSuperUser() {
-        return sessionUserService.getCurrentUser()
-                .flatMap(user -> {
-                    if (Boolean.TRUE.equals(user.getIsSuperUser())) {
+        return userUtils.isCurrentUserSuperUser()
+                .flatMap(isSuperUser -> {
+                    if (Boolean.TRUE.equals(isSuperUser)) {
                         return Mono.<Void>empty();
                     }
-                    log.debug("Datasource operation denied for non-super-user: {}", user.getEmail());
+                    log.debug("Datasource operation denied for non-super-user");
                     return Mono.error(new AppsmithException(AppsmithError.UNAUTHORIZED_ACCESS));
                 });
     }
