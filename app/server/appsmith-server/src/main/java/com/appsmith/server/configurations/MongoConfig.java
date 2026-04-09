@@ -4,6 +4,7 @@ import com.appsmith.external.annotations.documenttype.DocumentTypeMapper;
 import com.appsmith.external.annotations.encryption.EncryptionMongoEventListener;
 import com.appsmith.external.models.AuthenticationDTO;
 import com.appsmith.server.configurations.mongo.SoftDeleteMongoRepositoryFactoryBean;
+import com.appsmith.server.converters.StringToAclPermissionConverter;
 import com.appsmith.server.converters.StringToInstantConverter;
 import com.appsmith.server.repositories.BaseRepositoryImpl;
 import com.github.cloudyrock.mongock.ChangeLog;
@@ -254,7 +255,8 @@ public class MongoConfig {
 
     @Bean
     public MongoCustomConversions mongoCustomConversions() {
-        return new MongoCustomConversions(Collections.singletonList(new StringToInstantConverter()));
+        return new MongoCustomConversions(
+                List.of(new StringToInstantConverter(), new StringToAclPermissionConverter()));
     }
 
     @Bean

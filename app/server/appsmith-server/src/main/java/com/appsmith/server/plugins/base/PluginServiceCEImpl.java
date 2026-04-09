@@ -433,8 +433,13 @@ public class PluginServiceCEImpl extends BaseService<PluginRepository, Plugin, S
     }
 
     private Map<String, String> loadTemplatesFromPlugin(Plugin plugin) {
+        var pluginWrapper = pluginManager.getPlugin(plugin.getPackageName());
+        if (pluginWrapper == null) {
+            log.debug("Plugin not found in classpath: {}, skipping template loading", plugin.getPackageName());
+            return Collections.emptyMap();
+        }
         final PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver(
-                pluginManager.getPlugin(plugin.getPackageName()).getPluginClassLoader());
+                pluginWrapper.getPluginClassLoader());
 
         final PluginTemplatesMeta pluginTemplatesMeta;
         try (InputStream metaInputStream =
@@ -480,10 +485,12 @@ public class PluginServiceCEImpl extends BaseService<PluginRepository, Plugin, S
     InputStream getConfigInputStream(Plugin plugin, String fileName) throws IOException {
         String resourcePath = UQI_QUERY_EDITOR_BASE_FOLDER + "/" + fileName;
 
-        return pluginManager
-                .getPlugin(plugin.getPackageName())
-                .getPluginClassLoader()
-                .getResourceAsStream(resourcePath);
+        var pluginWrapper = pluginManager.getPlugin(plugin.getPackageName());
+        if (pluginWrapper == null) {
+            log.debug("Plugin not found in classpath: {}, returning null input stream", plugin.getPackageName());
+            return null;
+        }
+        return pluginWrapper.getPluginClassLoader().getResourceAsStream(resourcePath);
     }
 
     /**
@@ -585,10 +592,15 @@ public class PluginServiceCEImpl extends BaseService<PluginRepository, Plugin, S
     }
 
     private Map<?, ?> loadPluginResourceGivenPluginAsMap(Plugin plugin, String resourcePath) {
-        try (InputStream resourceAsStream = pluginManager
-                .getPlugin(plugin.getPackageName())
-                .getPluginClassLoader()
-                .getResourceAsStream(resourcePath)) {
+        var pluginWrapper = pluginManager.getPlugin(plugin.getPackageName());
+        if (pluginWrapper == null) {
+            throw new AppsmithException(
+                    AppsmithError.PLUGIN_LOAD_FORM_JSON_FAIL,
+                    plugin.getPackageName(),
+                    "plugin not available");
+        }
+        try (InputStream resourceAsStream =
+                pluginWrapper.getPluginClassLoader().getResourceAsStream(resourcePath)) {
 
             if (resourceAsStream == null) {
                 throw new AppsmithException(

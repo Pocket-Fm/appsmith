@@ -129,6 +129,26 @@ public enum AclPermission {
     MANAGE_PROTECTED_BRANCHES("manageProtectedBranches:applications", Application.class),
     MANAGE_DEFAULT_BRANCHES("manageDefaultBranches:applications", Application.class),
     MANAGE_AUTO_COMMIT("manageAutoCommit:applications", Application.class),
+
+    // ── PocketFM CE fork: EE-only permission stubs ──────────────────────────
+    // These exist in MongoDB documents populated by EE. Without them, Spring
+    // Data deserialization crashes with "No enum constant" errors.
+    // They are non-functional in CE — present only to allow safe deserialization.
+    CREATE_PERMISSION_GROUPS("create:permissionGroups", PermissionGroup.class),
+    CREATE_USER_GROUPS("create:userGroups", Organization.class),
+    CREATE_WORKSPACES("create:workspaces", Organization.class),
+    ORGANIZATION_MANAGE_ALL_USERS("manage:organizationUsers", Organization.class),
+    READ_ORGANIZATION_AUDIT_LOGS("read:auditLogs", Organization.class),
+    WORKSPACE_CREATE_ENVIRONMENT("create:environments", Workspace.class),
+    WORKSPACE_CREATE_PACKAGE("create:packages", Workspace.class),
+    WORKSPACE_CREATE_WORKFLOW("create:workflows", Workspace.class),
+    WORKSPACE_DELETE_ENVIRONMENTS("delete:workspaceEnvironments", Workspace.class),
+    WORKSPACE_DELETE_PACKAGES("delete:workspacePackages", Workspace.class),
+    WORKSPACE_EXPORT_PACKAGES("export:workspacePackages", Workspace.class),
+    WORKSPACE_EXPORT_WORKFLOWS("export:workspaceWorkflows", Workspace.class),
+    WORKSPACE_PUBLISH_PACKAGES("publish:workspacePackages", Workspace.class),
+    WORKSPACE_READ_ENVIRONMENTS("read:workspaceEnvironments", Workspace.class),
+    WORKSPACE_READ_PACKAGES("read:workspacePackages", Workspace.class),
     ;
 
     private final String value;

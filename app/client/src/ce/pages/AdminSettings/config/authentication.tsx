@@ -360,6 +360,61 @@ export const OidcAuth: AdminConfigType = {
   ],
 };
 
+export const SamlAuth: AdminConfigType = {
+  type: SettingCategories.SAML_AUTH,
+  categoryType: CategoryType.USER_MANAGEMENT,
+  controlType: SettingTypes.GROUP,
+  title: "SAML 2.0 authentication",
+  subText: createMessage(SAML_AUTH_DESC),
+  canSave: true,
+  settings: [
+    {
+      id: "APPSMITH_SAML_REDIRECT_URL",
+      category: SettingCategories.SAML_AUTH,
+      controlType: SettingTypes.UNEDITABLEFIELD,
+      label: "Redirect URL (ACS)",
+      fieldName: "saml-redirect-url-form",
+      value: "/api/v1/saml/login",
+      tooltip:
+        "This URL will be used as the Assertion Consumer Service (ACS) URL in your SAML IdP configuration",
+      helpText: "Paste this URL in your SAML identity provider settings.",
+    },
+    {
+      id: "APPSMITH_SAML_ENTITY_ID",
+      category: SettingCategories.SAML_AUTH,
+      controlType: SettingTypes.TEXTINPUT,
+      controlSubType: SettingSubtype.TEXT,
+      label: "SP entity ID",
+      placeholder: "https://your-appsmith-instance.com",
+    },
+    {
+      id: "APPSMITH_SAML_METADATA_URL",
+      category: SettingCategories.SAML_AUTH,
+      controlType: SettingTypes.TEXTINPUT,
+      controlSubType: SettingSubtype.TEXT,
+      label: "IdP metadata URL",
+      placeholder: "https://idp.example.com/metadata",
+    },
+    {
+      id: "APPSMITH_SAML_SSO_URL",
+      category: SettingCategories.SAML_AUTH,
+      controlType: SettingTypes.TEXTINPUT,
+      controlSubType: SettingSubtype.TEXT,
+      label: "IdP SSO URL",
+      placeholder: "https://idp.example.com/sso",
+      isRequired: true,
+    },
+    {
+      id: "APPSMITH_SAML_PUB_CERT",
+      category: SettingCategories.SAML_AUTH,
+      controlType: SettingTypes.TEXTINPUT,
+      controlSubType: SettingSubtype.TEXT,
+      label: "IdP X.509 public certificate",
+      placeholder: "Paste the PEM-encoded certificate",
+    },
+  ],
+};
+
 export const FormAuthCallout: AuthMethodType = {
   id: "APPSMITH_FORM_LOGIN_AUTH",
   category: SettingCategories.FORM_AUTH,
@@ -424,7 +479,8 @@ function AuthMain() {
     socialLoginList.includes("github");
   OidcAuth.isConnected = OidcAuthCallout.isConnected =
     socialLoginList.includes("oidc");
-  SamlAuthCallout.isConnected = socialLoginList.includes("saml");
+  SamlAuth.isConnected = SamlAuthCallout.isConnected =
+    socialLoginList.includes("saml");
 
   return <AuthPage authMethods={AuthMethods} />;
 }
@@ -436,6 +492,6 @@ export const config: AdminConfigType = {
   controlType: SettingTypes.PAGE,
   title: "Authentication",
   canSave: false,
-  children: [FormAuth, GoogleAuth, GithubAuth, OidcAuth],
+  children: [FormAuth, GoogleAuth, GithubAuth, OidcAuth, SamlAuth],
   component: AuthMain,
 };

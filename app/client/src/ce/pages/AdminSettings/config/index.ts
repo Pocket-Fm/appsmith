@@ -33,18 +33,21 @@ if (isSuperUser) ConfigFactory.register(GeneralConfig);
 
 if (isSuperUser && !isMultiOrgEnabled) ConfigFactory.register(EmailConfig);
 
-if (isSuperUser) ConfigFactory.register(BrandingConfig);
-
-if (isSuperUser) ConfigFactory.register(AuditLogsConfig);
+// PocketFM CE fork: Branding and Audit Logs are EE-only upgrade pages — hide them.
+// if (isSuperUser) ConfigFactory.register(BrandingConfig);
+// if (isSuperUser) ConfigFactory.register(AuditLogsConfig);
 
 // User management categories
 if (isSuperUser) ConfigFactory.register(UserSettings);
 
 if (isSuperUser) ConfigFactory.register(Authentication);
 
-if (isSuperUser) ConfigFactory.register(ProvisioningConfig);
+// PocketFM CE fork: Provisioning is EE-only — hide it.
+// if (isSuperUser) ConfigFactory.register(ProvisioningConfig);
 
-if (isSuperUser) ConfigFactory.register(UserListing);
+// PocketFM CE fork: Access Control management UI is EE-only.
+// GAC permission enforcement still works on the backend without this page.
+// if (isSuperUser) ConfigFactory.register(UserListing);
 
 // Instance categories
 if (isSuperUser && !isMultiOrgEnabled) ConfigFactory.register(InstanceSettings);
