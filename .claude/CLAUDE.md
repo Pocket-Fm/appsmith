@@ -28,7 +28,7 @@ Both repos build independently:
 
 | Repo | Docker Image | Status |
 |------|-------------|--------|
-| `Pocket-Fm/appsmith` | `ghcr.io/Pocket-Fm/appsmith-ce:latest` | Org image (for QA/prod) |
+| `Pocket-Fm/appsmith` | `ghcr.io/pocket-fm/appsmith-ce:latest` | Org image (for QA/prod) — owner lowercased in workflow |
 | `akash-pocketfm/appsmith` | `ghcr.io/akash-pocketfm/appsmith-ce:latest` | Personal backup (public) |
 
 **Workflow to push changes and trigger builds:**
@@ -224,4 +224,5 @@ AppSmith uses a 3-tier inheritance pattern:
 | Plugin NPE on home page | EE plugins in MongoDB, no JAR in CE | Null guards in PluginServiceCEImpl + delete EE plugins from MongoDB |
 | OIDC "Bad request" on save | Env vars not in whitelist | Added to EnvVariables.java enum |
 | OIDC button missing on login | 3 missing pieces | Spring Security registration + thirdPartyAuths + SocialLogin button |
-| CI can't run on Pocket-Fm fork | `release` branch is protected, workflow not on default branch | Use personal fork for CI until PR merged to release |
+| CI can't run on Pocket-Fm fork | `release` branch is protected, workflow not on default branch | Created `pocketfm-main` branch as CI branch; push triggers build on both repos |
+| GHCR push fails on Pocket-Fm fork | `github.repository_owner` returns `Pocket-Fm` (uppercase), Docker tags must be lowercase | Added step to lowercase owner: `echo ... \| tr '[:upper:]' '[:lower:]'` in workflow |
