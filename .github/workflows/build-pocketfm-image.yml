@@ -1,0 +1,194 @@
+name: Build PocketFM Custom Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag (e.g., latest, v1.0.0)"
+        required: false
+        type: string
+        default: "latest"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  server-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/server
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Build server (skip tests)
+        run: |
+          node scripts/check-field-constants.mjs
+          mvn clean package -DskipTests
+
+      - name: Upload server artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-build
+          path: app/server/dist/
+
+  client-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/client
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: app/client/package.json
+
+      - name: Restore Yarn cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/client/.yarn/cache
+            app/client/node_modules/.cache/webpack/
+          key: v1-yarn3-${{ hashFiles('app/client/yarn.lock') }}
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build client
+        run: |
+          REACT_APP_ENVIRONMENT=DEVELOPMENT \
+          REACT_APP_VERSION_EDITION="Community" \
+          yarn build || EXIT_CODE=$?
+          if [ -n "${EXIT_CODE:-}" ] && [ "$EXIT_CODE" -gt 1 ]; then
+            exit $EXIT_CODE
+          fi
+
+      - name: Pack client build
+        run: tar -cvf ./build.tar -C build .
+
+      - name: Upload client artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-build
+          path: app/client/build.tar
+
+  rts-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/client/packages/rts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: app/client/package.json
+
+      - name: Restore Yarn cache
+        uses: actions/cache@v4
+        with:
+          path: app/client/.yarn/cache
+          key: v1-yarn3-${{ hashFiles('app/client/yarn.lock') }}
+
+      - name: Install dependencies
+        working-directory: app/client
+        run: yarn install --immutable
+
+      - name: Build RTS
+        run: yarn build
+
+      - name: Upload RTS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rts-dist
+          path: app/client/packages/rts/dist/
+
+  package:
+    needs: [server-build, client-build, rts-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Download client build
+        uses: actions/download-artifact@v4
+        with:
+          name: client-build
+          path: app/client
+
+      - name: Unpack client build
+        run: |
+          mkdir -p app/client/build
+          tar -xvf app/client/build.tar -C app/client/build
+
+      - name: Download server build
+        uses: actions/download-artifact@v4
+        with:
+          name: server-build
+          path: app/server/dist
+
+      - name: Download RTS build
+        uses: actions/download-artifact@v4
+        with:
+          name: rts-dist
+          path: app/client/packages/rts/dist
+
+      - name: Untar RTS
+        run: |
+          if [ -f app/client/packages/rts/dist/rts-dist.tar ]; then
+            tar -xvf app/client/packages/rts/dist/rts-dist.tar -C app/client/packages/rts/
+            rm app/client/packages/rts/dist/rts-dist.tar
+          fi
+
+      - name: Generate info.json
+        run: scripts/generate_info_json.sh
+
+      - name: Prepare server artifacts
+        run: EDITION=ce scripts/prepare_server_artifacts.sh
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          set -o xtrace
+          docker build \
+            --build-arg "BASE=appsmith/base-ce:release" \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            -t ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ inputs.tag }} \
+            -t ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ github.sha }} \
+            .
+          docker push ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ inputs.tag }}
+          docker push ghcr.io/${{ github.repository_owner }}/appsmith-ce:${{ github.sha }}
