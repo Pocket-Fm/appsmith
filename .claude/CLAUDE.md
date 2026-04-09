@@ -10,13 +10,43 @@ This is PocketFM's fork of AppSmith Community Edition with enterprise features u
 |--------|-----|---------|
 | `origin` | `github.com/appsmithorg/appsmith` | Upstream AppSmith (read-only, for syncing) |
 | `fork` | `github.com/Pocket-Fm/appsmith` | PocketFM org fork — **source of truth** |
-| `personal` | `github.com/akash-pocketfm/appsmith` | Personal fork — used for CI builds (workaround, see below) |
+| `personal` | `github.com/akash-pocketfm/appsmith` | Personal fork — backup, also builds images |
 
-**Branch:** `feature/PLAT-2501-appsmith` (based on `fork/release`)
+### Branches
 
-**CI workaround:** The `release` branch on `Pocket-Fm/appsmith` has branch protection rules — can't push directly. The `build-pocketfm-image.yml` workflow needs to be on the default branch for `workflow_dispatch` to work. Until the feature branch is merged to `release` via PR, CI builds run from the personal fork (`akash-pocketfm/appsmith`).
+| Branch | Purpose |
+|--------|---------|
+| `feature/PLAT-2501-appsmith` | Active development branch (based on `fork/release`) |
+| `pocketfm-main` | **CI branch** — pushes here auto-trigger Docker image builds on both repos |
+| `release` | PocketFM's protected branch — do NOT push directly (branch protection rules) |
 
-**Docker image:** `ghcr.io/akash-pocketfm/appsmith-ce:latest` (public, multi-arch: amd64 + arm64)
+### CI / Docker Images
+
+The build workflow (`build-pocketfm-image.yml`) triggers on **push to `pocketfm-main`**. The `release` branch is protected and stays untouched — `pocketfm-main` is our CI branch.
+
+Both repos build independently:
+
+| Repo | Docker Image | Status |
+|------|-------------|--------|
+| `Pocket-Fm/appsmith` | `ghcr.io/Pocket-Fm/appsmith-ce:latest` | Org image (for QA/prod) |
+| `akash-pocketfm/appsmith` | `ghcr.io/akash-pocketfm/appsmith-ce:latest` | Personal backup (public) |
+
+**Workflow to push changes and trigger builds:**
+```bash
+# 1. Commit on feature branch
+git add ... && git commit -m "..."
+
+# 2. Push feature branch to both remotes
+git push fork feature/PLAT-2501-appsmith
+git push personal feature/PLAT-2501-appsmith
+
+# 3. Update pocketfm-main and push — this triggers builds on BOTH repos
+git branch -f pocketfm-main feature/PLAT-2501-appsmith
+git push fork pocketfm-main
+git push personal pocketfm-main
+```
+
+`workflow_dispatch` is also available but only works on the repo where `pocketfm-main` is the default branch (currently `akash-pocketfm/appsmith`).
 
 ---
 
