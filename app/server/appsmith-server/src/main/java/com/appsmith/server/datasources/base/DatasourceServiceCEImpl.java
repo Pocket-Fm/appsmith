@@ -137,11 +137,26 @@ public class DatasourceServiceCEImpl implements DatasourceServiceCE {
         this.observationRegistry = observationRegistry;
     }
 
+    /**
+     * PocketFM CE fork: Only super admins can create or edit datasources.
+     * Returns Mono.empty() if allowed, Mono.error(UNAUTHORIZED_ACCESS) otherwise.
+     */
+    private Mono<Void> requireSuperUser() {
+        return sessionUserService.getCurrentUser()
+                .flatMap(user -> {
+                    if (Boolean.TRUE.equals(user.getIsSuperUser())) {
+                        return Mono.<Void>empty();
+                    }
+                    log.debug("Datasource operation denied for non-super-user: {}", user.getEmail());
+                    return Mono.error(new AppsmithException(AppsmithError.UNAUTHORIZED_ACCESS));
+                });
+    }
+
     @Override
     public Mono<Datasource> create(Datasource datasource) {
-        return workspacePermission
+        return requireSuperUser().then(workspacePermission
                 .getDatasourceCreatePermission()
-                .flatMap(permission -> createEx(datasource, permission, false, null));
+                .flatMap(permission -> createEx(datasource, permission, false, null)));
     }
 
     // TODO: Check usage
@@ -306,6 +321,11 @@ public class DatasourceServiceCEImpl implements DatasourceServiceCE {
     @Override
     public Mono<Datasource> updateDatasource(
             String id, Datasource datasource, String activeEnvironmentId, Boolean isUserRefreshedUpdate) {
+        return requireSuperUser().then(updateDatasourceInternal(id, datasource, activeEnvironmentId, isUserRefreshedUpdate));
+    }
+
+    private Mono<Datasource> updateDatasourceInternal(
+            String id, Datasource datasource, String activeEnvironmentId, Boolean isUserRefreshedUpdate) {
         if (!hasText(id)) {
             return Mono.error(new AppsmithException(AppsmithError.INVALID_PARAMETER, FieldName.ID));
         }
@@ -344,6 +364,13 @@ public class DatasourceServiceCEImpl implements DatasourceServiceCE {
 
     @Override
     public Mono<Datasource> updateDatasourceStorage(
+            @NotNull DatasourceStorageDTO datasourceStorageDTO,
+            String activeEnvironmentId,
+            Boolean isUserRefreshedUpdate) {
+        return requireSuperUser().then(updateDatasourceStorageInternal(datasourceStorageDTO, activeEnvironmentId, isUserRefreshedUpdate));
+    }
+
+    private Mono<Datasource> updateDatasourceStorageInternal(
             @NotNull DatasourceStorageDTO datasourceStorageDTO,
             String activeEnvironmentId,
             Boolean isUserRefreshedUpdate) {
