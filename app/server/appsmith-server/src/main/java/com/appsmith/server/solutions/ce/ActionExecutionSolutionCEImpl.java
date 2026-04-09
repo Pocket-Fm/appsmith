@@ -942,8 +942,9 @@ public class ActionExecutionSolutionCEImpl implements ActionExecutionSolutionCE 
                         rawActionConfiguration = this.deepCopyActionConfiguration(actionDTO.getActionConfiguration());
                     }
 
-                    // PocketFM CE fork: substitute OAuth2 token placeholder in action configuration
+                    // PocketFM CE fork: substitute OAuth2 token placeholder in action AND datasource configuration
                     substituteOAuth2TokenPlaceholder(actionDTO.getActionConfiguration(), executeActionDTO);
+                    substituteOAuth2TokenInDatasourceConfig(datasourceStorage.getDatasourceConfiguration(), executeActionDTO);
 
                     log.debug(
                             "[{}]Execute Action called in Page {}, for action id : {}  action name : {}",
@@ -1352,6 +1353,36 @@ public class ActionExecutionSolutionCEImpl implements ActionExecutionSolutionCE 
         // Substitute in body if it's a string
         if (actionConfiguration.getBody() instanceof String bodyStr && bodyStr.contains(placeholder)) {
             actionConfiguration.setBody(bodyStr.replace(placeholder, token));
+        }
+    }
+
+    /**
+     * PocketFM CE fork: Substitutes <<APPSMITH_USER_OAUTH2_ACCESS_TOKEN>> placeholders
+     * in the datasource configuration headers and URL with the actual OAuth2 token.
+     * Datasource-level headers (e.g., Authorization) are separate from action-level headers.
+     */
+    private void substituteOAuth2TokenInDatasourceConfig(
+            com.appsmith.external.models.DatasourceConfiguration datasourceConfiguration,
+            ExecuteActionDTO executeActionDTO) {
+        String token = executeActionDTO.getSystemOAuth2AccessToken();
+        if (token == null || datasourceConfiguration == null) {
+            return;
+        }
+
+        String placeholder = "<<APPSMITH_USER_OAUTH2_ACCESS_TOKEN>>";
+
+        // Substitute in datasource headers
+        if (datasourceConfiguration.getHeaders() != null) {
+            datasourceConfiguration.getHeaders().forEach(header -> {
+                if (header.getValue() instanceof String headerValue && headerValue.contains(placeholder)) {
+                    header.setValue(headerValue.replace(placeholder, token));
+                }
+            });
+        }
+
+        // Substitute in datasource URL
+        if (datasourceConfiguration.getUrl() != null && datasourceConfiguration.getUrl().contains(placeholder)) {
+            datasourceConfiguration.setUrl(datasourceConfiguration.getUrl().replace(placeholder, token));
         }
     }
 }
