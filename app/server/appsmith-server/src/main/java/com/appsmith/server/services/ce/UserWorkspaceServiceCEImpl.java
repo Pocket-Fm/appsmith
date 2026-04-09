@@ -13,6 +13,7 @@ import com.appsmith.server.dtos.UpdatePermissionGroupDTO;
 import com.appsmith.server.exceptions.AppsmithError;
 import com.appsmith.server.exceptions.AppsmithException;
 import com.appsmith.server.helpers.AppsmithComparators;
+import com.appsmith.server.helpers.ce.UserUtilsCE;
 import com.appsmith.server.repositories.UserRepository;
 import com.appsmith.server.services.FeatureFlagService;
 import com.appsmith.server.services.OrganizationService;
@@ -58,6 +59,7 @@ public class UserWorkspaceServiceCEImpl implements UserWorkspaceServiceCE {
     private final WorkspacePermission workspacePermission;
     private final PermissionGroupPermission permissionGroupPermission;
     private final FeatureFlagService featureFlagService;
+    private final UserUtilsCE userUtils;
 
     @Autowired
     public UserWorkspaceServiceCEImpl(
@@ -69,7 +71,8 @@ public class UserWorkspaceServiceCEImpl implements UserWorkspaceServiceCE {
             OrganizationService organizationService,
             WorkspacePermission workspacePermission,
             PermissionGroupPermission permissionGroupPermission,
-            FeatureFlagService featureFlagService) {
+            FeatureFlagService featureFlagService,
+            UserUtilsCE userUtils) {
         this.sessionUserService = sessionUserService;
         this.workspaceService = workspaceService;
         this.userRepository = userRepository;
@@ -79,6 +82,7 @@ public class UserWorkspaceServiceCEImpl implements UserWorkspaceServiceCE {
         this.workspacePermission = workspacePermission;
         this.permissionGroupPermission = permissionGroupPermission;
         this.featureFlagService = featureFlagService;
+        this.userUtils = userUtils;
     }
 
     @Override
@@ -141,6 +145,19 @@ public class UserWorkspaceServiceCEImpl implements UserWorkspaceServiceCE {
     @Transactional
     @Override
     public Mono<MemberInfoDTO> updatePermissionGroupForMember(
+            String workspaceId, UpdatePermissionGroupDTO changeUserGroupDTO, String originHeader) {
+        // PocketFM CE fork: Only super admins can change/remove workspace members
+        return userUtils.isCurrentUserSuperUser()
+                .flatMap(isSuperUser -> {
+                    if (Boolean.TRUE.equals(isSuperUser)) {
+                        return doUpdatePermissionGroupForMember(workspaceId, changeUserGroupDTO, originHeader);
+                    }
+                    log.debug("Member role change denied for non-super-user");
+                    return Mono.error(new AppsmithException(AppsmithError.UNAUTHORIZED_ACCESS));
+                });
+    }
+
+    private Mono<MemberInfoDTO> doUpdatePermissionGroupForMember(
             String workspaceId, UpdatePermissionGroupDTO changeUserGroupDTO, String originHeader) {
         if (changeUserGroupDTO.getUsername() == null) {
             return Mono.error(new AppsmithException(AppsmithError.INVALID_PARAMETER, FieldName.USERNAME));

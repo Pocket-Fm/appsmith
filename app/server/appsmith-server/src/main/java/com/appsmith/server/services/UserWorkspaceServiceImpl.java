@@ -1,5 +1,6 @@
 package com.appsmith.server.services;
 
+import com.appsmith.server.helpers.UserUtils;
 import com.appsmith.server.repositories.UserRepository;
 import com.appsmith.server.services.ce.UserWorkspaceServiceCEImpl;
 import com.appsmith.server.solutions.PermissionGroupPermission;
@@ -20,7 +21,8 @@ public class UserWorkspaceServiceImpl extends UserWorkspaceServiceCEImpl impleme
             OrganizationService organizationService,
             WorkspacePermission workspacePermission,
             PermissionGroupPermission permissionGroupPermission,
-            FeatureFlagService featureFlagService) {
+            FeatureFlagService featureFlagService,
+            UserUtils userUtils) {
 
         super(
                 sessionUserService,
@@ -31,6 +33,7 @@ public class UserWorkspaceServiceImpl extends UserWorkspaceServiceCEImpl impleme
                 organizationService,
                 workspacePermission,
                 permissionGroupPermission,
-                featureFlagService);
+                featureFlagService,
+                userUtils);
     }
 }
