@@ -50,6 +50,11 @@ public class ExecuteActionDTO {
     @JsonIgnore
     long totalReadableByteCount;
 
+    // PocketFM: OAuth2 access token from user's session, injected server-side
+    // for <<APPSMITH_USER_OAUTH2_ACCESS_TOKEN>> placeholder substitution
+    @JsonIgnore
+    String systemOAuth2AccessToken;
+
     public void setParameterMap(Map<String, String> parameterMap) {
         this.parameterMap = parameterMap;
         invertParameterMap =
