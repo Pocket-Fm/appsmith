@@ -11,6 +11,7 @@ import com.appsmith.server.exceptions.AppsmithError;
 import com.appsmith.server.exceptions.AppsmithException;
 import com.appsmith.server.helpers.UserOrganizationHelper;
 import com.appsmith.server.helpers.ValidationUtils;
+import com.appsmith.server.helpers.ce.UserUtilsCE;
 import com.appsmith.server.repositories.UserRepository;
 import com.appsmith.server.services.AnalyticsService;
 import com.appsmith.server.services.CaptchaService;
@@ -49,6 +50,7 @@ public class UserAndAccessManagementServiceCEImpl implements UserAndAccessManage
     private final PermissionGroupPermission permissionGroupPermission;
     private final EmailService emailService;
     private final UserOrganizationHelper userOrganizationHelper;
+    private final UserUtilsCE userUtils;
 
     private final CaptchaService captchaService;
 
@@ -63,7 +65,8 @@ public class UserAndAccessManagementServiceCEImpl implements UserAndAccessManage
             EmailService emailService,
             CommonConfig commonConfig,
             UserOrganizationHelper userOrganizationHelper,
-            CaptchaService captchaService) {
+            CaptchaService captchaService,
+            UserUtilsCE userUtils) {
 
         this.sessionUserService = sessionUserService;
         this.permissionGroupService = permissionGroupService;
@@ -75,6 +78,7 @@ public class UserAndAccessManagementServiceCEImpl implements UserAndAccessManage
         this.permissionGroupPermission = permissionGroupPermission;
         this.userOrganizationHelper = userOrganizationHelper;
         this.captchaService = captchaService;
+        this.userUtils = userUtils;
     }
 
     @Override
@@ -102,6 +106,18 @@ public class UserAndAccessManagementServiceCEImpl implements UserAndAccessManage
      */
     @Override
     public Mono<List<User>> inviteUsers(InviteUsersDTO inviteUsersDTO, String originHeader) {
+        // PocketFM CE fork: Only super admins can invite users to workspaces
+        return userUtils.isCurrentUserSuperUser()
+                .flatMap(isSuperUser -> {
+                    if (Boolean.TRUE.equals(isSuperUser)) {
+                        return doInviteUsers(inviteUsersDTO, originHeader);
+                    }
+                    log.debug("User invitation denied for non-super-user");
+                    return Mono.error(new AppsmithException(AppsmithError.UNAUTHORIZED_ACCESS));
+                });
+    }
+
+    private Mono<List<User>> doInviteUsers(InviteUsersDTO inviteUsersDTO, String originHeader) {
 
         if (originHeader == null || originHeader.isBlank()) {
             return Mono.error(new AppsmithException(AppsmithError.INVALID_PARAMETER, FieldName.ORIGIN));

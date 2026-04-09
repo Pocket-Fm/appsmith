@@ -309,7 +309,7 @@ public class PluginServiceCEImpl extends BaseService<PluginRepository, Plugin, S
                     .doOnError(throwable ->
                             // Remove this pluginId from the cache so it is tried again next time.
                             formCache.remove(pluginId))
-                    .onErrorMap(Exceptions::unwrap)
+                    .onErrorReturn(new HashMap<>())
                     .cache();
             final Mono<Map<?, ?>> editorMono = loadPluginResource(pluginId, "editor.json")
                     .doOnError(throwable ->
@@ -594,10 +594,8 @@ public class PluginServiceCEImpl extends BaseService<PluginRepository, Plugin, S
     private Map<?, ?> loadPluginResourceGivenPluginAsMap(Plugin plugin, String resourcePath) {
         var pluginWrapper = pluginManager.getPlugin(plugin.getPackageName());
         if (pluginWrapper == null) {
-            throw new AppsmithException(
-                    AppsmithError.PLUGIN_LOAD_FORM_JSON_FAIL,
-                    plugin.getPackageName(),
-                    "plugin not available");
+            log.debug("Plugin not found in classpath: {}, returning empty form config", plugin.getPackageName());
+            return Collections.emptyMap();
         }
         try (InputStream resourceAsStream =
                 pluginWrapper.getPluginClassLoader().getResourceAsStream(resourcePath)) {

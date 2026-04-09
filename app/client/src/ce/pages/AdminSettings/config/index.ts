@@ -45,9 +45,8 @@ if (isSuperUser) ConfigFactory.register(Authentication);
 // PocketFM CE fork: Provisioning is EE-only — hide it.
 // if (isSuperUser) ConfigFactory.register(ProvisioningConfig);
 
-// PocketFM CE fork: Access Control management UI is EE-only.
-// GAC permission enforcement still works on the backend without this page.
-// if (isSuperUser) ConfigFactory.register(UserListing);
+// PocketFM CE fork: Access Control page shows role info (replaces EE upgrade prompt)
+if (isSuperUser) ConfigFactory.register(UserListing);
 
 // Instance categories
 if (isSuperUser && !isMultiOrgEnabled) ConfigFactory.register(InstanceSettings);
