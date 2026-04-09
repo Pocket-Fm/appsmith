@@ -73,6 +73,12 @@ public class FeatureFlagServiceCEImpl implements FeatureFlagServiceCE {
                     // Always add the organization level flags after the user flags to make sure organization flags gets
                     // the precedence
                     combinedFlags.putAll(remoteAndOrganizationFlags.getT2());
+
+                    // PocketFM CE fork: force-enable OIDC, SAML, and GAC regardless of license
+                    combinedFlags.put("license_sso_oidc_enabled", true);
+                    combinedFlags.put("license_sso_saml_enabled", true);
+                    combinedFlags.put("license_gac_enabled", true);
+
                     return combinedFlags;
                 });
     }
