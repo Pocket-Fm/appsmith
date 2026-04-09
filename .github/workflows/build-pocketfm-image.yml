@@ -38,9 +38,7 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Build server (skip tests)
-        run: |
-          node scripts/check-field-constants.mjs
-          mvn clean package -DskipTests
+        run: ./build.sh -DskipTests
 
       - name: Upload server artifacts
         uses: actions/upload-artifact@v4
@@ -148,6 +146,7 @@ jobs:
         run: |
           mkdir -p app/client/build
           tar -xvf app/client/build.tar -C app/client/build
+        working-directory: .
 
       - name: Download server build
         uses: actions/download-artifact@v4
