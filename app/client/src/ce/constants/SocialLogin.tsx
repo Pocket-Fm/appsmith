@@ -29,9 +29,8 @@ export const GithubSocialLoginButtonProps: SocialLoginButtonProps = {
 // PocketFM CE fork: OIDC SSO (JumpCloud / generic OIDC)
 export const OidcSocialLoginButtonProps: SocialLoginButtonProps = {
   url: `${OAuthURL}/oidc`,
-  name: "OIDC SSO",
+  name: "Login with JumpCloud",
   logo: OidcLogo,
-  label: "Sign in with OIDC",
 };
 
 export const SocialLoginButtonPropsList: Record<
