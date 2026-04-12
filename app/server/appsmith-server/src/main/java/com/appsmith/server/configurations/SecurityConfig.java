@@ -41,7 +41,13 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenValidator;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoderFactory;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.ServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.authentication.ServerAuthenticationEntryPointFailureHandler;
@@ -275,6 +281,27 @@ public class SecurityConfig {
                         .logoutUrl(Url.LOGOUT_URL)
                         .logoutSuccessHandler(new LogoutSuccessHandler(objectMapper, analyticsService)))
                 .build();
+    }
+
+    /**
+     * Configures OIDC JWT decoder with a 5-minute clock skew tolerance.
+     * Without this, Google login fails when the server clock drifts behind Google by more
+     * than the default 60-second tolerance (common in Docker/kind environments after sleep/wake).
+     * Spring Security 6.x auto-detects this bean and injects it into OidcAuthorizationCodeReactiveAuthenticationManager.
+     */
+    @Bean
+    public ReactiveJwtDecoderFactory<ClientRegistration> idTokenDecoderFactory() {
+        return clientRegistration -> {
+            NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder
+                    .withJwkSetUri(clientRegistration.getProviderDetails().getJwkSetUri())
+                    .build();
+            OidcIdTokenValidator idTokenValidator = new OidcIdTokenValidator(clientRegistration);
+            idTokenValidator.setClockSkew(java.time.Duration.ofMinutes(5));
+            decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                    new JwtTimestampValidator(java.time.Duration.ofMinutes(5)),
+                    idTokenValidator));
+            return decoder;
+        };
     }
 
     /**
