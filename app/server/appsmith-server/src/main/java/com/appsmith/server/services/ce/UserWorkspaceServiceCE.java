@@ -29,4 +29,6 @@ public interface UserWorkspaceServiceCE {
     Mono<List<Workspace>> getUserWorkspacesInAlphabeticalOrder();
 
     Mono<List<Workspace>> getUserWorkspacesForHome();
+
+    Mono<Boolean> isMemberByEmail(String workspaceId, String email);
 }

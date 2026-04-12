@@ -183,7 +183,9 @@ export interface AppsmithEntity extends Omit<AppDataState, "store"> {
   theme: AppTheme["properties"];
   currentPageName: string;
   workspaceName: string;
+  workspaceId: string;
   appName: string;
+  appId: string;
   currentEnvironmentName: string;
 }
 

@@ -477,4 +477,22 @@ public class UserWorkspaceServiceCEImpl implements UserWorkspaceServiceCE {
             }
         });
     }
+
+    @Override
+    public Mono<Boolean> isMemberByEmail(String workspaceId, String email) {
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(workspaceId)) {
+            return Mono.just(false);
+        }
+        return userRepository
+                .findByEmail(email)
+                .flatMap(user -> {
+                    Workspace workspace = new Workspace();
+                    workspace.setId(workspaceId);
+                    return permissionGroupService
+                            .getByDefaultWorkspace(workspace, null)
+                            .any(pg -> pg.getAssignedToUserIds() != null
+                                    && pg.getAssignedToUserIds().contains(user.getId()));
+                })
+                .defaultIfEmpty(false);
+    }
 }

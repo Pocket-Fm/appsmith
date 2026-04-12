@@ -188,7 +188,9 @@ export const getUnevaluatedDataTree = createSelector(
       ui: windowDimensions,
       currentPageName: getCurrentPageName,
       workspaceName: currentWorkspace.name,
+      workspaceId: currentWorkspace.id,
       appName: currentApplication?.name,
+      appId: currentApplication?.id || "",
       currentEnvironmentName,
       ENTITY_TYPE: ENTITY_TYPE.APPSMITH,
     } as AppsmithEntity;

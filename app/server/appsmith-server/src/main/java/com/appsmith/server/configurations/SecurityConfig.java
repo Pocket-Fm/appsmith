@@ -79,6 +79,7 @@ import static com.appsmith.server.constants.Url.THEME_URL;
 import static com.appsmith.server.constants.Url.USAGE_PULSE_URL;
 import static com.appsmith.server.constants.Url.USER_URL;
 import static com.appsmith.server.constants.ce.UrlCE.CONSOLIDATED_API_URL;
+import static com.appsmith.server.constants.ce.UrlCE.WORKSPACE_URL;
 
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
@@ -235,7 +236,8 @@ public class SecurityConfig {
                                 ServerWebExchangeMatchers.pathMatchers(
                                         HttpMethod.POST, USER_URL + "/verifyEmailVerificationToken"),
                                 ServerWebExchangeMatchers.pathMatchers(HttpMethod.GET, PRODUCT_ALERT + "/alert"),
-                                ServerWebExchangeMatchers.pathMatchers(HttpMethod.GET, CONSOLIDATED_API_URL + "/view"))
+                                ServerWebExchangeMatchers.pathMatchers(HttpMethod.GET, CONSOLIDATED_API_URL + "/view"),
+                                ServerWebExchangeMatchers.pathMatchers(HttpMethod.GET, WORKSPACE_URL + "/*/is-member"))
                         .permitAll()
                         .pathMatchers("/public/**", "/oauth2/**")
                         .permitAll()
