@@ -16,13 +16,14 @@ This is PocketFM's fork of AppSmith Community Edition with enterprise features u
 
 | Branch | Purpose |
 |--------|---------|
-| `feature/PLAT-2501-appsmith` | Active development branch (based on `fork/release`) |
-| `pocketfm-main` | **CI branch** — pushes here auto-trigger Docker image builds on both repos |
+| `pocketfm-main` | **Main working branch** — all code changes go here directly |
 | `release` | PocketFM's protected branch — do NOT push directly (branch protection rules) |
+
+> **IMPORTANT for Claude:** Always work on and commit to `pocketfm-main`. Do NOT use feature branches. Push directly to `pocketfm-main` on both `fork` and `personal` remotes after every change.
 
 ### CI / Docker Images
 
-The build workflow (`build-pocketfm-image.yml`) triggers on **push to `pocketfm-main`**. The `release` branch is protected and stays untouched — `pocketfm-main` is our CI branch.
+The build workflow (`build-pocketfm-image.yml`) triggers on **push to `pocketfm-main`**. The `release` branch is protected and stays untouched.
 
 Both repos build independently:
 
@@ -33,15 +34,13 @@ Both repos build independently:
 
 **Workflow to push changes and trigger builds:**
 ```bash
-# 1. Commit on feature branch
-git add ... && git commit -m "..."
+# 1. Make sure you're on pocketfm-main
+git checkout pocketfm-main
 
-# 2. Push feature branch to both remotes
-git push fork feature/PLAT-2501-appsmith
-git push personal feature/PLAT-2501-appsmith
+# 2. Commit changes
+git add <files> && git commit -m "..."
 
-# 3. Update pocketfm-main and push — this triggers builds on BOTH repos
-git branch -f pocketfm-main feature/PLAT-2501-appsmith
+# 3. Push to BOTH remotes — this triggers CI builds on both repos
 git push fork pocketfm-main
 git push personal pocketfm-main
 ```
