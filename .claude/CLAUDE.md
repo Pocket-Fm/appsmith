@@ -66,6 +66,7 @@ git push personal pocketfm-main
 - Added Spring Security OAuth2 client registration for OIDC provider
 - Properties: client-id, client-secret, scopes, redirect-uri, authorization-uri, token-uri, userinfo-uri, jwk-set-uri
 - Client ID defaults to `missing_value_sentinel` (same pattern as Google/GitHub — prevents Spring from auto-configuring when unconfigured)
+- All provider URIs default to `https://missing_value_sentinel` (non-empty) to prevent Spring's `ClientRegistration` validation from crashing at startup when OIDC is not configured
 
 **File:** `app/server/appsmith-server/src/main/java/com/appsmith/server/services/ce/OrganizationServiceCEImpl.java`
 - Added `System.getenv("APPSMITH_OAUTH2_OIDC_CLIENT_ID")` check to `getOrganizationConfiguration()`
@@ -163,7 +164,51 @@ db.plugin.deleteMany({packageName: {$in: ["appsmith-agent-plugin"]}})
 - Replaced `AccessControlUpgradePage` with `AccessControlInfoPage`
 - Shows workspace role descriptions and guidance instead of EE upgrade prompt
 
-### 8. CI/CD Pipeline
+### 8. Workspace ID / App ID Global Template Variables
+
+**Purpose:** Workspace names are NOT unique in AppSmith. Use workspace ID and app ID to uniquely identify the calling context in datasource headers.
+
+**Files:**
+- `app/client/src/ce/entities/DataTree/types.ts` — added `workspaceId: string` and `appId: string` to `AppsmithEntity` interface
+- `app/client/src/selectors/dataTreeSelectors.ts` — populated `workspaceId: currentWorkspace.id` and `appId: currentApplication?.id || ""`
+
+**Usage in datasource headers:**
+```
+X-AppSmith-Workspace-ID: {{appsmith.workspaceId}}
+X-AppSmith-App-ID: {{appsmith.appId}}
+```
+
+### 9. Open Workspace Membership Check API
+
+**Purpose:** Allows backend services to verify if a user (identified by email from their OAuth2 token) is a member of the AppSmith workspace that made the API call.
+
+**Endpoint:**
+```
+GET /api/v1/workspaces/{workspaceId}/is-member?email=user@example.com
+```
+- **No authentication required** (open endpoint — whitelisted in `SecurityConfig.java`)
+- Returns `{ "data": true/false }`
+
+**Curl:**
+```bash
+curl "https://appsmith.example.com/api/v1/workspaces/{workspaceId}/is-member?email=user@pocketfm.com"
+# → {"responseMeta":{"status":200,"success":true},"data":true}
+```
+
+**Files:**
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/services/ce/UserWorkspaceServiceCE.java` — added `isMemberByEmail` to interface
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/services/ce/UserWorkspaceServiceCEImpl.java` — implemented: finds user by email → gets workspace permission groups (null ACL = bypass auth) → checks `assignedToUserIds`
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/controllers/ce/WorkspaceControllerCE.java` — added `GET /{workspaceId}/is-member` endpoint
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/configurations/SecurityConfig.java` — whitelisted `WORKSPACE_URL + "/*/is-member"` in `permitAll` matchers
+
+**End-to-end flow:**
+1. Configure datasource header: `X-AppSmith-Workspace-ID: {{appsmith.workspaceId}}`
+2. Backend receives request with OAuth2 token + workspace ID header
+3. Backend validates OAuth2 token → extracts `userEmail`
+4. Backend calls: `GET /api/v1/workspaces/{workspaceId}/is-member?email={userEmail}`
+5. If `true` → allow. Otherwise → return 403.
+
+### 10. CI/CD Pipeline
 
 **File:** `.github/workflows/build-pocketfm-image.yml` (NEW)
 - Multi-stage GitHub Actions workflow: server-build (Maven) → client-build (Yarn) → rts-build → Docker package
@@ -191,6 +236,8 @@ AppSmith uses a 3-tier inheritance pattern:
 - **Env var whitelist:** `EnvVariables.java` enum — admin UI rejects saves for any var not in this enum
 - **SSO button rendering:** `OrganizationServiceCEImpl.getOrganizationConfiguration()` → `thirdPartyAuths` list → `SocialLoginButtonPropsList` in client
 - **OAuth2 token flow:** Spring Security session → `OAuth2AuthorizedClient` → `ExecuteActionDTO.oAuth2AccessToken` → placeholder substitution in action execution
+- **Workspace/app identity in datasources:** `{{appsmith.workspaceId}}` and `{{appsmith.appId}}` — populated in `dataTreeSelectors.ts` from Redux store
+- **Membership check:** `GET /api/v1/workspaces/{id}/is-member?email=...` — open endpoint, no auth required, returns `true/false`
 
 ### MongoDB
 - EE data in CE MongoDB is handled by: enum stubs + fault-tolerant converter + plugin null guards
@@ -225,3 +272,5 @@ AppSmith uses a 3-tier inheritance pattern:
 | OIDC button missing on login | 3 missing pieces | Spring Security registration + thirdPartyAuths + SocialLogin button |
 | CI can't run on Pocket-Fm fork | `release` branch is protected, workflow not on default branch | Created `pocketfm-main` branch as CI branch; push triggers build on both repos |
 | GHCR push fails on Pocket-Fm fork | `github.repository_owner` returns `Pocket-Fm` (uppercase), Docker tags must be lowercase | Added step to lowercase owner: `echo ... \| tr '[:upper:]' '[:lower:]'` in workflow |
+| `authorizationUri cannot be empty` on startup | OIDC provider URIs defaulted to `""` when env vars unset; `ReactiveJwtDecoderFactory` bean triggers eager validation | Changed defaults to `https://missing_value_sentinel` in `application-ce.properties` |
+| Google login JWT clock skew (`iat` invalid) | Docker/kind VM clock drifts behind Google after Mac sleep/wake | Added `ReactiveJwtDecoderFactory<ClientRegistration>` bean in `SecurityConfig.java` with 5-min tolerance |
