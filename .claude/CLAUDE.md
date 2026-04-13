@@ -67,6 +67,7 @@ git push personal pocketfm-main
 - Properties: client-id, client-secret, scopes, redirect-uri, authorization-uri, token-uri, userinfo-uri, jwk-set-uri
 - Client ID defaults to `missing_value_sentinel` (same pattern as Google/GitHub — prevents Spring from auto-configuring when unconfigured)
 - All provider URIs default to `https://missing_value_sentinel` (non-empty) to prevent Spring's `ClientRegistration` validation from crashing at startup when OIDC is not configured
+- `client-authentication-method` defaults to `client_secret_post` (JumpCloud requires POST body, Spring defaults to Basic header) — overridable via `APPSMITH_OAUTH2_OIDC_CLIENT_AUTH_METHOD`
 
 **File:** `app/server/appsmith-server/src/main/java/com/appsmith/server/services/ce/OrganizationServiceCEImpl.java`
 - Added `System.getenv("APPSMITH_OAUTH2_OIDC_CLIENT_ID")` check to `getOrganizationConfiguration()`
@@ -273,4 +274,5 @@ AppSmith uses a 3-tier inheritance pattern:
 | CI can't run on Pocket-Fm fork | `release` branch is protected, workflow not on default branch | Created `pocketfm-main` branch as CI branch; push triggers build on both repos |
 | GHCR push fails on Pocket-Fm fork | `github.repository_owner` returns `Pocket-Fm` (uppercase), Docker tags must be lowercase | Added step to lowercase owner: `echo ... \| tr '[:upper:]' '[:lower:]'` in workflow |
 | `authorizationUri cannot be empty` on startup | OIDC provider URIs defaulted to `""` when env vars unset; `ReactiveJwtDecoderFactory` bean triggers eager validation | Changed defaults to `https://missing_value_sentinel` in `application-ce.properties` |
+| OIDC login fails: `client_secret_post` vs `client_secret_basic` | JumpCloud requires credentials in POST body; Spring defaults to `Authorization: Basic` header | Added `client-authentication-method=client_secret_post` (default) in `application-ce.properties` |
 | Google login JWT clock skew (`iat` invalid) | Docker/kind VM clock drifts behind Google after Mac sleep/wake | Added `ReactiveJwtDecoderFactory<ClientRegistration>` bean in `SecurityConfig.java` with 5-min tolerance |
