@@ -293,17 +293,21 @@ public class SecurityConfig {
      */
     @Bean
     public ReactiveJwtDecoderFactory<ClientRegistration> idTokenDecoderFactory() {
-        return clientRegistration -> {
-            NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder
-                    .withJwkSetUri(clientRegistration.getProviderDetails().getJwkSetUri())
-                    .build();
-            OidcIdTokenValidator idTokenValidator = new OidcIdTokenValidator(clientRegistration);
-            idTokenValidator.setClockSkew(java.time.Duration.ofMinutes(5));
-            decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                    new JwtTimestampValidator(java.time.Duration.ofMinutes(5)),
-                    idTokenValidator));
-            return decoder;
-        };
+        java.util.concurrent.ConcurrentHashMap<String, NimbusReactiveJwtDecoder> decoderCache =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        return clientRegistration -> decoderCache.computeIfAbsent(
+                clientRegistration.getRegistrationId(),
+                id -> {
+                    NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder
+                            .withJwkSetUri(clientRegistration.getProviderDetails().getJwkSetUri())
+                            .build();
+                    OidcIdTokenValidator idTokenValidator = new OidcIdTokenValidator(clientRegistration);
+                    idTokenValidator.setClockSkew(java.time.Duration.ofMinutes(5));
+                    decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                            new JwtTimestampValidator(java.time.Duration.ofMinutes(5)),
+                            idTokenValidator));
+                    return decoder;
+                });
     }
 
     /**
