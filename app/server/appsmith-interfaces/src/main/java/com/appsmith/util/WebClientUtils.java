@@ -61,6 +61,12 @@ public class WebClientUtils {
             .evictInBackground(Duration.ofSeconds(150))
             .build();
 
+    public static final ConnectionProvider OIDC_CONNECTION_PROVIDER = ConnectionProvider.builder("oidc")
+            .maxIdleTime(Duration.ofSeconds(60))
+            .maxLifeTime(Duration.ofSeconds(120))
+            .evictInBackground(Duration.ofSeconds(120))
+            .build();
+
     // Singleton WebClient instance for Cloud Services to avoid creating multiple instances
     private static volatile WebClient cloudServicesWebClient;
 

@@ -300,6 +300,8 @@ public class SecurityConfig {
                 id -> {
                     NimbusReactiveJwtDecoder decoder = NimbusReactiveJwtDecoder
                             .withJwkSetUri(clientRegistration.getProviderDetails().getJwkSetUri())
+                            .webClient(com.appsmith.util.WebClientUtils.create(
+                                    com.appsmith.util.WebClientUtils.OIDC_CONNECTION_PROVIDER))
                             .build();
                     OidcIdTokenValidator idTokenValidator = new OidcIdTokenValidator(clientRegistration);
                     idTokenValidator.setClockSkew(java.time.Duration.ofMinutes(5));

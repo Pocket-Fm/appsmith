@@ -8,10 +8,12 @@ import com.appsmith.server.exceptions.AppsmithOAuth2AuthenticationException;
 import com.appsmith.server.helpers.UserOrganizationHelper;
 import com.appsmith.server.repositories.UserRepository;
 import com.appsmith.server.services.UserService;
+import com.appsmith.util.WebClientUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcReactiveOAuth2UserService;
 import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.userinfo.DefaultReactiveOAuth2UserService;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
@@ -37,6 +39,10 @@ public class CustomOidcUserServiceCEImpl extends OidcReactiveOAuth2UserService {
         this.repository = repository;
         this.userService = userService;
         this.userOrganizationHelper = userOrganizationHelper;
+
+        DefaultReactiveOAuth2UserService delegate = new DefaultReactiveOAuth2UserService();
+        delegate.setWebClient(WebClientUtils.create(WebClientUtils.OIDC_CONNECTION_PROVIDER));
+        this.setOauth2UserService(delegate);
     }
 
     @Override

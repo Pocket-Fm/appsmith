@@ -11,7 +11,8 @@ import reactor.core.publisher.Mono;
 @Component
 public class CustomAccessTokenResponseClient extends WebClientReactiveAuthorizationCodeTokenResponseClient {
 
-    private static final WebClient webClient = WebClientUtils.builder().build();
+    private static final WebClient webClient =
+            WebClientUtils.builder(WebClientUtils.OIDC_CONNECTION_PROVIDER).build();
 
     @Override
     public Mono<OAuth2AccessTokenResponse> getTokenResponse(OAuth2AuthorizationCodeGrantRequest grantRequest) {
