@@ -49,7 +49,7 @@ git push personal pocketfm-main
 
 ---
 
-## Summary of All Changes (14 commits, 27 files)
+## Summary of All Changes (15 commits, 29 files)
 
 ### 1. Unlock EE Feature Flags in CE
 
@@ -209,7 +209,27 @@ curl "https://appsmith.example.com/api/v1/workspaces/{workspaceId}/is-member?ema
 4. Backend calls: `GET /api/v1/workspaces/{workspaceId}/is-member?email={userEmail}`
 5. If `true` → allow. Otherwise → return 403.
 
-### 10. CI/CD Pipeline
+### 10. Auto-Add Super Admins to New Workspaces
+
+**Purpose:** When any workspace is created, all super admin users are automatically added as Administrators. Ensures super admins always have visibility and control over every workspace.
+
+**Files:**
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/services/ce/WorkspaceServiceCEImpl.java` — injected `UserUtilsCE`, modified `generatePermissionsForDefaultPermissionGroups()` to fetch instance admin permission group's `assignedToUserIds` (all super admin IDs) and merge them with the workspace creator's ID into the admin permission group
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/services/WorkspaceServiceImpl.java` — propagated `UserUtils` constructor param to `super()`
+
+**How it works:**
+1. During workspace creation, `generatePermissionsForDefaultPermissionGroups()` calls `userUtils.getInstanceAdminPermissionGroup()`
+2. Extracts all super admin user IDs from the instance admin permission group's `assignedToUserIds`
+3. Merges super admin IDs with the workspace creator's ID into a `HashSet`
+4. Sets the merged set as `adminPermissionGroup.setAssignedToUserIds(allAdminIds)`
+5. Evicts permission cache for all affected users (creator + all super admins)
+
+**Edge cases handled:**
+- Instance admin PG returns empty → `defaultIfEmpty(Set.of())`, creator still added
+- `assignedToUserIds` is null → null check in `.map()`
+- Creator is already a super admin → `HashSet` deduplicates
+
+### 11. CI/CD Pipeline
 
 **File:** `.github/workflows/build-pocketfm-image.yml` (NEW)
 - Multi-stage GitHub Actions workflow: server-build (Maven) → client-build (Yarn) → rts-build → Docker package
@@ -239,6 +259,7 @@ AppSmith uses a 3-tier inheritance pattern:
 - **OAuth2 token flow:** Spring Security session → `OAuth2AuthorizedClient` → `ExecuteActionDTO.oAuth2AccessToken` → placeholder substitution in action execution
 - **Workspace/app identity in datasources:** `{{appsmith.workspaceId}}` and `{{appsmith.appId}}` — populated in `dataTreeSelectors.ts` from Redux store
 - **Membership check:** `GET /api/v1/workspaces/{id}/is-member?email=...` — open endpoint, no auth required, returns `true/false`
+- **Super admin auto-add to workspaces:** `WorkspaceServiceCEImpl.generatePermissionsForDefaultPermissionGroups()` merges all super admin IDs (from instance admin PG) into new workspace's admin permission group
 
 ### MongoDB
 - EE data in CE MongoDB is handled by: enum stubs + fault-tolerant converter + plugin null guards

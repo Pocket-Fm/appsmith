@@ -1,5 +1,6 @@
 package com.appsmith.server.services;
 
+import com.appsmith.server.helpers.UserUtils;
 import com.appsmith.server.helpers.WorkspaceServiceHelper;
 import com.appsmith.server.repositories.ApplicationRepository;
 import com.appsmith.server.repositories.AssetRepository;
@@ -32,7 +33,8 @@ public class WorkspaceServiceImpl extends WorkspaceServiceCEImpl implements Work
             ModelMapper modelMapper,
             WorkspacePermission workspacePermission,
             PermissionGroupPermission permissionGroupPermission,
-            WorkspaceServiceHelper workspaceServiceHelper) {
+            WorkspaceServiceHelper workspaceServiceHelper,
+            UserUtils userUtils) {
 
         super(
                 validator,
@@ -48,6 +50,7 @@ public class WorkspaceServiceImpl extends WorkspaceServiceCEImpl implements Work
                 modelMapper,
                 workspacePermission,
                 permissionGroupPermission,
-                workspaceServiceHelper);
+                workspaceServiceHelper,
+                userUtils);
     }
 }
