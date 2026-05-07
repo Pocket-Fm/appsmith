@@ -132,11 +132,17 @@ public class SecurityConfig {
     @Autowired
     private MeterRegistry meterRegistry;
 
+    @Autowired
+    private com.appsmith.server.repositories.UserRepository userRepository;
+
     @Value("${appsmith.internal.password}")
     private String INTERNAL_PASSWORD;
 
     @Value("${appsmith.internal.apikey:}")
     private String INTERNAL_API_KEY;
+
+    @Value("${appsmith.internal.service-account-email:}")
+    private String INTERNAL_SERVICE_ACCOUNT_EMAIL;
 
     private static final String INTERNAL = "INTERNAL";
 
@@ -194,7 +200,7 @@ public class SecurityConfig {
         csrfConfig.applyTo(http);
 
         return http.addFilterAt(this::sanityCheckFilter, SecurityWebFiltersOrder.FIRST)
-                .addFilterBefore(new ApiKeyAuthFilter(INTERNAL_API_KEY), SecurityWebFiltersOrder.AUTHENTICATION)
+                .addFilterBefore(new ApiKeyAuthFilter(INTERNAL_API_KEY, userRepository, INTERNAL_SERVICE_ACCOUNT_EMAIL), SecurityWebFiltersOrder.AUTHENTICATION)
                 // Default security headers configuration from
                 // https://docs.spring.io/spring-security/site/docs/5.0.x/reference/html/headers.html
                 .headers(headerSpec -> headerSpec

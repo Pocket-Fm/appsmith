@@ -324,7 +324,10 @@ AppSmith uses a 3-tier inheritance pattern:
 - Empty default = disabled until explicitly configured
 - Invalid keys fall through to normal auth (no 403 from filter itself)
 
-**Env var:** `APPSMITH_INTERNAL_API_KEY` — set in AWS Secrets Manager alongside other Appsmith secrets
+**Env vars:**
+- `APPSMITH_INTERNAL_API_KEY` — the shared secret key
+- `APPSMITH_INTERNAL_SERVICE_ACCOUNT_EMAIL` — email of a super admin user in Appsmith (filter authenticates as this user)
+Both set in AWS Secrets Manager alongside other Appsmith secrets
 
 **Usage from IAM:**
 ```bash
@@ -332,4 +335,4 @@ curl -H "X-API-Key: <key>" -H "Content-Type: application/json" \
   "https://appsmith-qa.pocketfm.org/api/v1/workspaces"
 ```
 
-**Important limitation:** The filter authenticates as `INTERNAL_SERVICE` principal (not a real Appsmith user). Some endpoints that check `isSuperUser()` via `sessionUserService.getCurrentUser()` may not work because there's no real user in the session. The workspace management APIs (invite, role change, membership list) work because they check permissions via ACL, not super-admin status.
+**Important limitation:** The filter loads a real Appsmith super admin user (configured via `APPSMITH_INTERNAL_SERVICE_ACCOUNT_EMAIL`) from MongoDB and sets it as the authenticated principal. This ensures endpoints that call `sessionUserService.getCurrentUser()` and `isSuperUser()` work correctly. The user is cached after first load.
