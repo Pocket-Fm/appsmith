@@ -259,6 +259,7 @@ AppSmith uses a 3-tier inheritance pattern:
 - **OAuth2 token flow:** Spring Security session → `OAuth2AuthorizedClient` → `ExecuteActionDTO.oAuth2AccessToken` → placeholder substitution in action execution
 - **Workspace/app identity in datasources:** `{{appsmith.workspaceId}}` and `{{appsmith.appId}}` — populated in `dataTreeSelectors.ts` from Redux store
 - **Membership check:** `GET /api/v1/workspaces/{id}/is-member?email=...` — open endpoint, no auth required, returns `true/false`
+- **Internal API key auth:** `ApiKeyAuthFilter` — `X-API-Key` header bypasses session auth for service-to-service calls. Env var: `APPSMITH_INTERNAL_API_KEY`. Filter registered before `AUTHENTICATION` order in `SecurityConfig.java`
 - **Super admin auto-add to workspaces:** `WorkspaceServiceCEImpl.generatePermissionsForDefaultPermissionGroups()` merges all super admin IDs (from instance admin PG) into new workspace's admin permission group
 
 ### MongoDB
@@ -298,3 +299,37 @@ AppSmith uses a 3-tier inheritance pattern:
 | OIDC login fails: `client_secret_post` vs `client_secret_basic` | JumpCloud requires credentials in POST body; Spring defaults to `Authorization: Basic` header | Added `client-authentication-method=client_secret_post` (default) in `application-ce.properties` |
 | Google login JWT clock skew (`iat` invalid) | Docker/kind VM clock drifts behind Google after Mac sleep/wake | Added `ReactiveJwtDecoderFactory<ClientRegistration>` bean in `SecurityConfig.java` with 5-min tolerance |
 | OIDC login intermittent `Connection reset` | Stale Netty pooled connections to JumpCloud timeout at AWS NAT/Cloudflare | Dedicated `OIDC_CONNECTION_PROVIDER` with `maxIdleTime=60s` in `WebClientUtils.java` + decoder caching (`ConcurrentHashMap` in `idTokenDecoderFactory`) |
+
+### 12. Internal API Key Authentication Filter
+
+**Purpose:** Allows IAM (and other internal services) to call Appsmith's existing REST APIs without browser session/cookie auth. Used for automated workspace member management (invite, role change, removal) as part of IAM's RBAC/authz system.
+
+**Endpoint scope:** ALL existing `/api/v1/*` endpoints — no new endpoints created. The filter is an alternative authentication path alongside session/cookie auth.
+
+**Files:**
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/filters/ApiKeyAuthFilter.java` (NEW) — `WebFilter` that checks `X-API-Key` header
+- `app/server/appsmith-server/src/main/java/com/appsmith/server/configurations/SecurityConfig.java` — registered filter before `AUTHENTICATION` order, added `@Value` for `appsmith.internal.apikey`
+- `app/server/appsmith-server/src/main/resources/application-ce.properties` — added `appsmith.internal.apikey=${APPSMITH_INTERNAL_API_KEY:}`
+
+**How it works:**
+1. Filter runs before Spring Security's authentication filters
+2. If `X-API-Key` header is absent → no-op, passes through to normal session auth
+3. If `X-API-Key` matches `APPSMITH_INTERNAL_API_KEY` env var → injects `INTERNAL_SERVICE` authentication into reactive security context
+4. If key is present but wrong → passes through (no rejection, normal auth runs)
+5. Empty API key config (default) = filter never activates
+
+**Safety guarantees:**
+- Additive only — no existing auth code modified
+- JSON requests already CSRF-exempt — no CSRF changes needed
+- Empty default = disabled until explicitly configured
+- Invalid keys fall through to normal auth (no 403 from filter itself)
+
+**Env var:** `APPSMITH_INTERNAL_API_KEY` — set in AWS Secrets Manager alongside other Appsmith secrets
+
+**Usage from IAM:**
+```bash
+curl -H "X-API-Key: <key>" -H "Content-Type: application/json" \
+  "https://appsmith-qa.pocketfm.org/api/v1/workspaces"
+```
+
+**Important limitation:** The filter authenticates as `INTERNAL_SERVICE` principal (not a real Appsmith user). Some endpoints that check `isSuperUser()` via `sessionUserService.getCurrentUser()` may not work because there's no real user in the session. The workspace management APIs (invite, role change, membership list) work because they check permissions via ACL, not super-admin status.

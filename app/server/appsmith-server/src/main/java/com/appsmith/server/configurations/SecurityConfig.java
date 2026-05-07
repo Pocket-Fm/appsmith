@@ -11,6 +11,7 @@ import com.appsmith.server.constants.Url;
 import com.appsmith.server.domains.User;
 import com.appsmith.server.dtos.ResponseDTO;
 import com.appsmith.server.exceptions.AppsmithErrorCode;
+import com.appsmith.server.filters.ApiKeyAuthFilter;
 import com.appsmith.server.filters.ConditionalFilter;
 import com.appsmith.server.filters.LoginMetricsFilter;
 import com.appsmith.server.filters.LoginRateLimitFilter;
@@ -134,6 +135,9 @@ public class SecurityConfig {
     @Value("${appsmith.internal.password}")
     private String INTERNAL_PASSWORD;
 
+    @Value("${appsmith.internal.apikey:}")
+    private String INTERNAL_API_KEY;
+
     private static final String INTERNAL = "INTERNAL";
 
     /**
@@ -190,6 +194,7 @@ public class SecurityConfig {
         csrfConfig.applyTo(http);
 
         return http.addFilterAt(this::sanityCheckFilter, SecurityWebFiltersOrder.FIRST)
+                .addFilterBefore(new ApiKeyAuthFilter(INTERNAL_API_KEY), SecurityWebFiltersOrder.AUTHENTICATION)
                 // Default security headers configuration from
                 // https://docs.spring.io/spring-security/site/docs/5.0.x/reference/html/headers.html
                 .headers(headerSpec -> headerSpec
