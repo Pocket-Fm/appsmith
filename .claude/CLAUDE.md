@@ -8,44 +8,40 @@ This is PocketFM's fork of AppSmith Community Edition with enterprise features u
 
 | Remote | URL | Purpose |
 |--------|-----|---------|
-| `origin` | `github.com/appsmithorg/appsmith` | Upstream AppSmith (read-only, for syncing) |
-| `fork` | `github.com/Pocket-Fm/appsmith` | PocketFM org fork — **source of truth** |
-| `personal` | `github.com/akash-pocketfm/appsmith` | Personal fork — backup, also builds images |
+| `upstream` | `github.com/appsmithorg/appsmith` | Upstream AppSmith (fetch only, never push) |
+| `origin` | `github.com/Pocket-Fm/appsmith` | PocketFM org fork — **source of truth** |
+
+> **Note:** Personal fork (`akash-pocketfm/appsmith`) is deprecated. All pushes go to `origin` (Pocket-Fm/appsmith) only.
 
 ### Branches
 
-| Branch | Purpose |
-|--------|---------|
-| `pocketfm-main` | **Main working branch** — all code changes go here directly |
-| `release` | PocketFM's protected branch — do NOT push directly (branch protection rules) |
+| Branch | Purpose | Protection |
+|--------|---------|------------|
+| `develop` | **Development branch** — all code changes go here directly | None (direct push OK) |
+| `main` | **Production branch (default)** — PRs only from `develop`. Opens when you visit the repo. | Protected (require PR review) |
+| `release` | Legacy — upstream workflows reference it, left as-is | Protected (do NOT use) |
 
-> **IMPORTANT for Claude:** Always work on and commit to `pocketfm-main`. Do NOT use feature branches. Push directly to `pocketfm-main` on both `fork` and `personal` remotes after every change.
+> **IMPORTANT for Claude:** Always work on and commit to `develop`. Do NOT use feature branches. Push to `origin` (Pocket-Fm/appsmith) only.
 
 ### CI / Docker Images
 
-The build workflow (`build-pocketfm-image.yml`) triggers on **push to `pocketfm-main`**. The `release` branch is protected and stays untouched.
+Two workflows build separate images:
 
-Both repos build independently:
+| Workflow | Trigger | Image Tags |
+|----------|---------|------------|
+| `build-dev-image.yml` | Push to `develop` | `:dev`, `:dev-<sha>` |
+| `build-prod-image.yml` | Push to `main` (PR merge) | `:latest`, `:<sha>`, `:v<semver>` |
 
-| Repo | Docker Image | Status |
-|------|-------------|--------|
-| `Pocket-Fm/appsmith` | `ghcr.io/pocket-fm/appsmith-ce:latest` | Org image (for QA/prod) — owner lowercased in workflow |
-| `akash-pocketfm/appsmith` | `ghcr.io/akash-pocketfm/appsmith-ce:latest` | Personal backup (public) |
+**Registry:** `ghcr.io/pocket-fm/appsmith-ce` (private)
 
-**Workflow to push changes and trigger builds:**
+**Workflow to push changes and trigger dev build:**
 ```bash
-# 1. Make sure you're on pocketfm-main
-git checkout pocketfm-main
-
-# 2. Commit changes
+git checkout develop
 git add <files> && git commit -m "..."
-
-# 3. Push to BOTH remotes — this triggers CI builds on both repos
-git push fork pocketfm-main
-git push personal pocketfm-main
+git push origin develop
 ```
 
-`workflow_dispatch` is also available but only works on the repo where `pocketfm-main` is the default branch (currently `akash-pocketfm/appsmith`).
+**To promote to production:** Create PR from `develop` to `main`. On merge, prod image builds automatically.
 
 ---
 
@@ -272,16 +268,24 @@ AppSmith uses a 3-tier inheritance pattern:
 
 ### Local (kind cluster)
 - See `/Users/akashgupta/personal/appsmith/.claude/CLAUDE.md` for full local deployment docs
-- Image: `ghcr.io/akash-pocketfm/appsmith-ce:latest`
+- Image: `ghcr.io/pocket-fm/appsmith-ce:dev`
 - URL: `http://localhost:30000`
 
 ### QA (EKS via ArgoCD)
-- Infra repo: `Pocket-Fm/Infra_deployments_k8s` branch `feature/PLAT-2507-appsmith-qa`
+- Infra repo: `Pocket-Fm/Infra_deployments_k8s`
 - Values: `overlays/appsmith/qa/values.yaml`
-- Image: `ghcr.io/akash-pocketfm/appsmith-ce:latest`
+- Image: `ghcr.io/pocket-fm/appsmith-ce:dev`
 - URL: `https://appsmith-qa.pocketfm.org`
 - Secrets: AWS Secrets Manager at `qa/platform/appsmith`
 - OIDC config: Done via AppSmith admin UI (not env vars in secrets)
+
+### Prod (EKS via ArgoCD)
+- Infra repo: `Pocket-Fm/Infra_deployments_k8s`
+- Values: `overlays/appsmith/prod/values.yaml`
+- Image: `ghcr.io/pocket-fm/appsmith-ce:latest`
+- URL: `https://appsmith-prod.pocketfm.org`
+- Secrets: AWS Secrets Manager at `prod/platform/appsmith`
+- MongoDB: External Atlas cluster (`appsmithcluster.v9nsci8.mongodb.net`)
 
 ---
 
@@ -293,7 +297,7 @@ AppSmith uses a 3-tier inheritance pattern:
 | Plugin NPE on home page | EE plugins in MongoDB, no JAR in CE | Null guards in PluginServiceCEImpl + delete EE plugins from MongoDB |
 | OIDC "Bad request" on save | Env vars not in whitelist | Added to EnvVariables.java enum |
 | OIDC button missing on login | 3 missing pieces | Spring Security registration + thirdPartyAuths + SocialLogin button |
-| CI can't run on Pocket-Fm fork | `release` branch is protected, workflow not on default branch | Created `pocketfm-main` branch as CI branch; push triggers build on both repos |
+| CI can't run on Pocket-Fm fork | `release` branch is protected, workflow not on default branch | Created `develop` branch as CI branch; push triggers build on both repos |
 | GHCR push fails on Pocket-Fm fork | `github.repository_owner` returns `Pocket-Fm` (uppercase), Docker tags must be lowercase | Added step to lowercase owner: `echo ... \| tr '[:upper:]' '[:lower:]'` in workflow |
 | `authorizationUri cannot be empty` on startup | OIDC provider URIs defaulted to `""` when env vars unset; `ReactiveJwtDecoderFactory` bean triggers eager validation | Changed defaults to `https://missing_value_sentinel` in `application-ce.properties` |
 | OIDC login fails: `client_secret_post` vs `client_secret_basic` | JumpCloud requires credentials in POST body; Spring defaults to `Authorization: Basic` header | Added `client-authentication-method=client_secret_post` (default) in `application-ce.properties` |

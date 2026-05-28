@@ -1,16 +1,16 @@
-name: Build PocketFM Custom Image
+name: Build Dev Image
 
 on:
   push:
     branches:
-      - pocketfm-main
+      - develop
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag (e.g., latest, v1.0.0)"
+        description: "Image tag suffix (e.g., dev-hotfix). Default: dev"
         required: false
         type: string
-        default: "latest"
+        default: "dev"
 
 permissions:
   contents: read
@@ -153,7 +153,6 @@ jobs:
         run: |
           mkdir -p app/client/build
           tar -xvf app/client/build.tar -C app/client/build
-        working-directory: .
 
       - name: Download server build
         uses: actions/download-artifact@v4
@@ -202,7 +201,7 @@ jobs:
           build-args: |
             BASE=appsmith/base-ce:release
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:${{ inputs.tag || 'latest' }}
-            ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:${{ inputs.tag || 'dev' }}
+            ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:dev-${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

@@ -1,0 +1,214 @@
+name: Build Prod Image
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Semver tag (e.g., v1.0.0). If set, image is also tagged with this version."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  server-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/server
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+
+      - name: Build server (skip tests)
+        run: ./build.sh -DskipTests
+
+      - name: Upload server artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-build
+          path: app/server/dist/
+
+  client-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/client
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: app/client/package.json
+
+      - name: Restore Yarn cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/client/.yarn/cache
+            app/client/node_modules/.cache/webpack/
+          key: v1-yarn3-${{ hashFiles('app/client/yarn.lock') }}
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build client
+        run: |
+          REACT_APP_ENVIRONMENT=PRODUCTION \
+          REACT_APP_VERSION_EDITION="Community" \
+          yarn build || EXIT_CODE=$?
+          if [ -n "${EXIT_CODE:-}" ] && [ "$EXIT_CODE" -gt 1 ]; then
+            exit $EXIT_CODE
+          fi
+
+      - name: Pack client build
+        run: tar -cvf ./build.tar -C build .
+
+      - name: Upload client artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-build
+          path: app/client/build.tar
+
+  rts-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/client/packages/rts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: app/client/package.json
+
+      - name: Restore Yarn cache
+        uses: actions/cache@v4
+        with:
+          path: app/client/.yarn/cache
+          key: v1-yarn3-${{ hashFiles('app/client/yarn.lock') }}
+
+      - name: Install dependencies
+        working-directory: app/client
+        run: yarn install --immutable
+
+      - name: Build RTS
+        run: yarn build
+
+      - name: Upload RTS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rts-dist
+          path: app/client/packages/rts/dist/
+
+  package:
+    needs: [server-build, client-build, rts-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Lowercase repository owner
+        id: repo
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          TAGS="ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:latest"
+          TAGS="${TAGS},ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:${{ github.sha }}"
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAGS="${TAGS},ghcr.io/${{ steps.repo.outputs.owner }}/appsmith-ce:${{ inputs.tag }}"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Download client build
+        uses: actions/download-artifact@v4
+        with:
+          name: client-build
+          path: app/client
+
+      - name: Unpack client build
+        run: |
+          mkdir -p app/client/build
+          tar -xvf app/client/build.tar -C app/client/build
+
+      - name: Download server build
+        uses: actions/download-artifact@v4
+        with:
+          name: server-build
+          path: app/server/dist
+
+      - name: Download RTS build
+        uses: actions/download-artifact@v4
+        with:
+          name: rts-dist
+          path: app/client/packages/rts/dist
+
+      - name: Untar RTS
+        run: |
+          if [ -f app/client/packages/rts/dist/rts-dist.tar ]; then
+            tar -xvf app/client/packages/rts/dist/rts-dist.tar -C app/client/packages/rts/
+            rm app/client/packages/rts/dist/rts-dist.tar
+          fi
+
+      - name: Generate info.json
+        run: scripts/generate_info_json.sh
+
+      - name: Prepare server artifacts
+        run: EDITION=ce scripts/prepare_server_artifacts.sh
+
+      - name: Set up QEMU (for arm64 cross-build)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BASE=appsmith/base-ce:release
+          tags: ${{ steps.tags.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
